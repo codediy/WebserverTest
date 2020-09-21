@@ -10,10 +10,13 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -54,7 +57,14 @@ public class MainActivity extends AppCompatActivity {
     private Button logBtn;
     private TextView logText;
 
+    private EditText timerPerText;
+    private RadioGroup timerRadioGroup;
+
+
     private String baseUrl;
+    private String per;
+    private String perType = "1";
+    private long perNum;
     private Timer timer;
     private TimerTask task;
 
@@ -99,6 +109,9 @@ public class MainActivity extends AppCompatActivity {
         clientBtn = findViewById(R.id.client_btn);
         logBtn = findViewById(R.id.log_btn);
         logText = findViewById(R.id.log_text);
+
+        timerPerText = findViewById(R.id.per_text);
+        timerRadioGroup = findViewById(R.id.timer_group);
     }
 
     private void initData() {
@@ -144,9 +157,44 @@ public class MainActivity extends AppCompatActivity {
                     log("关闭客户端");
                     isTimer = false;
                 } else {
+                    /*检查时间*/
+                    per = timerPerText.getText().toString();
+                    if (per.length() == 0) {
+                        tip("请输入间隔时间");
+                        return;
+                    }
+                    if (perType.length() == 0) {
+                        tip("请输入间隔类型");
+                        return;
+                    }
+
+                    long tempPer = Long.valueOf(per);
+                    perNum = 0; /*秒*/
+                    String perInfo = "访问间隔：每" + tempPer;
+                    if (perType.equals("1")) { /*秒*/
+                        perNum = tempPer * 1000;
+                        perInfo += "秒";
+                    }
+                    if (perType.equals("2")) { /*分*/
+                        perNum = tempPer * 1000 * 60;
+                        perInfo += "分钟";
+                    }
+                    if (perType.equals("3")) { /*时*/
+                        perNum = tempPer * 1000 * 60 * 60;
+                        perInfo += "小时";
+                    }
+                    log(tempPer + "");
+                    log(perType);
+                    log(perNum + "");
+                    log(perInfo + "");
+
+                    if (perNum == 0) {
+                        tip("请设置间隔类型信息");
+                        return;
+                    }
                     startTimer();
                     clientBtn.setText("关闭客户端");
-                    log("启动客户端");
+                    log("启动客户端，" + perInfo);
                     isTimer = true;
                 }
             }
@@ -159,6 +207,17 @@ public class MainActivity extends AppCompatActivity {
                 logText.setText(log);
             }
         });
+        timerRadioGroup.check(R.id.s_btn);
+        timerRadioGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                RadioButton r = findViewById(checkedId);
+                perType = r.getTag().toString();
+                log("radio:" + perType + "");
+            }
+        });
+
+        logText.setMovementMethod(ScrollingMovementMethod.getInstance());
     }
 
     private void setIpAccess() {
@@ -244,9 +303,8 @@ public class MainActivity extends AppCompatActivity {
         if (task == null) {
             task = new MyTask();
         }
-
         if (timer != null && task != null) {
-            timer.schedule(task, 1000, 1000 * 10);
+            timer.schedule(task, 1000, perNum);
         }
     }
 
@@ -297,5 +355,20 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+    }
+
+
+    @Override
+    protected void onDestroy() {
+        if (isStarted) {
+            stopAndroidWebServer();
+        }
+        if (isTimer) {
+            stopTimer();
+        }
+        if (broadcastReceiverNetworkState != null) {
+            unregisterReceiver(broadcastReceiverNetworkState);
+        }
+        super.onDestroy();
     }
 }
