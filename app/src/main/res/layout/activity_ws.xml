@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="30dp"
             android:gravity="center"
-            android:text="普通服务端" />
+            android:text="WebSocket服务端" />
 
         <com.zhy.android.percent.support.PercentLinearLayout
             android:layout_width="match_parent"
@@ -61,7 +61,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="60dp"
                 android:layout_gravity="center"
-                android:text="启动服务器" />
+                android:text="启动ws服务器" />
 
             <TextView
                 android:id="@+id/status_text"
@@ -146,7 +146,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:layout_gravity="center"
-                android:text="启动客户端" />
+                android:text="启动ws客户端" />
 
             <Button
                 android:id="@+id/log_btn"

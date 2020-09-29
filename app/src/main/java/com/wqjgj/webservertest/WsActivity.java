@@ -33,16 +33,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.TimeUnit;
-
-import okhttp3.Call;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
-
-
-public class MainActivity extends AppCompatActivity {
+public class WsActivity extends AppCompatActivity {
     private static final int DEFAULT_PORT = 8080;
     private TextView ipText;
     private EditText portText;
@@ -69,12 +60,13 @@ public class MainActivity extends AppCompatActivity {
     private Button serverPageBtn;
     private Button wsServerPageBtn;
     // webServer
-    private AndroidWebServer androidWebServer;
+    private AndroidWebSocket androidWebServer;
     private BroadcastReceiver broadcastReceiverNetworkState;
     private static boolean isStarted = false;
 
     // client
     private static boolean isTimer = false;
+    private WsClient wsClient;
 
     // handler对象，用来接收消息~
     @SuppressLint("HandlerLeak")
@@ -89,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_ws);
 
         initView();
         initData();
@@ -195,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
                         tip("请设置间隔类型信息");
                         return;
                     }
-                    startTimer();
+                    startClient();
                     clientBtn.setText("关闭客户端");
                     log("启动客户端，" + perInfo);
                     isTimer = true;
@@ -225,15 +217,15 @@ public class MainActivity extends AppCompatActivity {
         serverPageBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                tip("普通服务器");
+                Intent intent = new Intent(WsActivity.this, MainActivity.class);
+                startActivity(intent);
             }
         });
 
         wsServerPageBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, WsActivity.class);
-                startActivity(intent);
+                tip("wsServer");
             }
         });
     }
@@ -246,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
         WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
         int ipAddress = wifiManager.getConnectionInfo().getIpAddress();
         final String formatedIpAddress = String.format("%d.%d.%d.%d", (ipAddress & 0xff), (ipAddress >> 8 & 0xff), (ipAddress >> 16 & 0xff), (ipAddress >> 24 & 0xff));
-        return "http://" + formatedIpAddress + ":";
+        return "ws://" + formatedIpAddress + ":";
     }
 
     private int getPortFromEditText() {
@@ -272,8 +264,8 @@ public class MainActivity extends AppCompatActivity {
                 if (port == 0) {
                     throw new Exception();
                 }
-                baseUrl = "http://localhost:" + port;
-                androidWebServer = new AndroidWebServer(port);
+                baseUrl = "ws://localhost:" + port;
+                androidWebServer = new AndroidWebSocket(port);
                 androidWebServer.start();
                 return true;
             } catch (Exception e) {
@@ -307,11 +299,46 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void tip(String msg) {
-        Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+        Toast.makeText(WsActivity.this, msg, Toast.LENGTH_SHORT).show();
     }
 
     private void log(String msg) {
         Logger.i(msg);
+    }
+
+    public void startClient(){
+        try {
+            new ClientTask().start();
+        }catch (Exception e){
+            log("关闭客户端111" + e.toString());
+            e.printStackTrace();
+        }
+    }
+
+    private class ClientTask extends Thread{
+        @Override
+        public void run() {
+            Log.d("WsClientMessage","启动客户端");
+
+            wsClient = new WsClient();
+            wsClient.init(baseUrl, perNum, new WsClient.wsCallback() {
+                @Override
+                public void onMessage(String msg) {
+                    Log.d("WsClientMessage","服务器返回信息");
+
+                    SimpleDateFormat formatter = new SimpleDateFormat("MM-dd HH:mm:ss");
+                    Date curDate = new Date(System.currentTimeMillis());
+                    String dateString = formatter.format(curDate);
+
+                    Message message = Message.obtain();
+                    message.what = 1;
+                    message.obj = dateString + ":" + msg;
+                    serverHandler.sendMessage(message);
+
+                    log(msg);
+                }
+            });
+        }
     }
 
     public void startTimer() {
@@ -347,31 +374,8 @@ public class MainActivity extends AppCompatActivity {
     class MyTask extends TimerTask {
         @Override
         public void run() {
-            OkHttpClient okHttpClient = new OkHttpClient();
-            Request request = new Request.Builder().url(baseUrl).build();
-            try (Response response = okHttpClient.newCall(request).execute()) {
-                ResponseBody body = response.body();
-                String res;
-                if (response.isSuccessful()) {
-                    res = body == null ? "" : body.string();
-                    Log.d("success:{}", res);
-                } else {
-                    res = response.code() + "";
-                    Log.e("error", res);
-                }
-                SimpleDateFormat formatter = new SimpleDateFormat("MM-dd HH:mm:ss");
-                Date curDate = new Date(System.currentTimeMillis());
-                String dateString = formatter.format(curDate);
+            /*启动客户端*/
 
-                Message message = Message.obtain();
-                message.what = 1;
-                message.obj = dateString + ":" + res;
-                serverHandler.sendMessage(message);
-                log(res);
-            } catch (IOException e) {
-                log("关闭客户端" + e.toString());
-                e.printStackTrace();
-            }
         }
     }
 
